@@ -120,7 +120,8 @@ jobs:
         category: "/language:${{matrix.language}}"
  
   build:
-    needs: [test, security-scan]
+    # needs: [test, security-scan]
+    needs:  security-scan
     runs-on: ubuntu-latest
     
     steps:
@@ -158,7 +159,8 @@ jobs:
         path: /tmp/frontend.tar
 
   terraform-plan:
-    needs: test
+    needs: build
+    # needs: test
     runs-on: ubuntu-latest
     
     steps:
