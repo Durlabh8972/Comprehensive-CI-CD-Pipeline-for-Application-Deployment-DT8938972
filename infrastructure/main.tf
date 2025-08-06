@@ -16,21 +16,41 @@ terraform {
   #   region = "us-east-1"
   # }
 }
+# For even better flexibility, you could use locals:
+locals {
+  # Detect if running in CI/CD environment
+  is_ci_environment = can(regex("^(true|1)$", lower(coalesce(var.ci_environment, "false"))))
+}
 
+# Alternative provider configuration using locals
 provider "aws" {
-  # remember to comment below line when using remote backend
-  profile = "default"
-
-  region = var.aws_region
+  # Automatically skip profile in CI environments
+  profile = local.is_ci_environment ? null : var.aws_profile
+  region  = var.aws_region
   
   default_tags {
     tags = {
       Project     = "todo-cicd"
       Environment = var.environment
       ManagedBy   = "terraform"
+      DeployedBy  = local.is_ci_environment ? "github-actions" : "local"
     }
   }
 }
+# provider "aws" {
+#   # remember to comment below line when using remote backend
+#   profile = "default"
+
+#   region = var.aws_region
+  
+#   default_tags {
+#     tags = {
+#       Project     = "todo-cicd"
+#       Environment = var.environment
+#       ManagedBy   = "terraform"
+#     }
+#   }
+# }
 
 # Data sources
 data "aws_availability_zones" "available" {

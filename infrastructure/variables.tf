@@ -11,6 +11,24 @@ variable "environment" {
   type        = string
   default     = "development"
 }
+# This variable is used to determine if the environment is production or not
+variable "use_aws_profile" {
+  description = "Whether to use AWS profile for authentication"
+  type        = bool
+  default     = false
+}
+
+variable "aws_profile" {
+  description = "AWS profile name for local development"
+  type        = string
+  default     = "default"
+}
+
+variable "ci_environment" {
+  description = "Flag to indicate if running in CI environment"
+  type        = string
+  default     = ""
+}
 
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
