@@ -10,6 +10,8 @@ on:
       - '**/*.md'
       - '**/*.txt' 
       - '**/*.test.js'
+  workflow_dispatch:
+
   # schedule:
   #   - cron: '36 22 * * 5'
 
@@ -158,9 +160,79 @@ jobs:
         name: frontend-image
         path: /tmp/frontend.tar
 
-  terraform-plan:
+  # terraform-plan:
+  #   needs: build
+  #   # needs: test
+  #   runs-on: ubuntu-latest
+  #   # env:
+  #   #   AWS_REGION: us-east-1 
+    
+  #   steps:
+  #   - uses: actions/checkout@v4
+    
+  #   - name: Setup Terraform
+  #     uses: hashicorp/setup-terraform@v3
+  #     with:
+  #       terraform_version: 1.5.0
+    
+  #   - name: Configure AWS credentials
+  #     uses: aws-actions/configure-aws-credentials@v4
+  #     with:
+  #       aws-region: ${{ vars.AWS_REGION }}
+  #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    
+  #   - name: Terraform Init
+  #     run: |
+  #       cd infrastructure
+  #       terraform init
+    
+  #   - name: Terraform Validate
+  #     run: |
+  #       cd infrastructure
+  #       terraform validate
+    
+  #   - name: Terraform Plan
+  #     run: |
+  #       cd infrastructure
+  #       terraform plan -no-color
+  #     env:
+  #       TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+
+  # deploy:
+  #   needs: [build, terraform-plan]
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+    
+  #   steps:
+  #   - uses: actions/checkout@v4
+    
+  #   - name: Configure AWS credentials
+  #     uses: aws-actions/configure-aws-credentials@v4
+  #     with:
+  #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #       aws-region: ${{ vars.AWS_REGION }}
+    
+  #   - name: Setup Terraform
+  #     uses: hashicorp/setup-terraform@v3
+  #     with:
+  #       terraform_version: 1.5.0
+    
+  #   - name: Deploy Infrastructure
+  #     run: |
+  #       cd infrastructure
+  #       terraform init
+  #       terraform apply -auto-approve
+  #     env:
+  #       TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    
+  #   - name: Deploy Application
+  #     run: |
+  #       echo "Application deployment would happen here"
+  #       echo "This could involve updating EC2 instances, ECS services, etc."
+terraform-plan:
     needs: build
-    # needs: test
     runs-on: ubuntu-latest
     
     steps:
@@ -174,9 +246,10 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
+        aws-region: ${{ vars.AWS_REGION }}
+        # aws-region: ${{ env.AWS_REGION }}
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
     
     - name: Terraform Init
       run: |
@@ -193,7 +266,14 @@ jobs:
         cd infrastructure
         terraform plan -no-color
       env:
+        # Standard Terraform environment variables
         TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+        TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+        # TF_VAR_aws_region: ${{ env.AWS_REGION }}
+        TF_VAR_use_aws_profile: false
+        TF_VAR_ci_environment: true
+        TF_VAR_key_pair_name: ${{ secrets.KEY_PAIR_NAME }}
+        TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
 
   deploy:
     needs: [build, terraform-plan]
@@ -208,7 +288,8 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+        aws-region: ${{ vars.AWS_REGION }}
+        # aws-region: ${{ env.AWS_REGION }}
     
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
@@ -221,10 +302,20 @@ jobs:
         terraform init
         terraform apply -auto-approve
       env:
+        # Environment variables that Terraform will automatically pick up
         TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+        TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+        # TF_VAR_aws_region: ${{ env.AWS_REGION }}
+        TF_VAR_use_aws_profile: false
+        TF_VAR_ci_environment: true
+        TF_VAR_key_pair_name: ${{ secrets.KEY_PAIR_NAME }}
+        TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+        
+        # AWS credentials are automatically available through environment variables:
+        # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+        # (Set by aws-actions/configure-aws-credentials action)
     
     - name: Deploy Application
       run: |
         echo "Application deployment would happen here"
         echo "This could involve updating EC2 instances, ECS services, etc."
-
