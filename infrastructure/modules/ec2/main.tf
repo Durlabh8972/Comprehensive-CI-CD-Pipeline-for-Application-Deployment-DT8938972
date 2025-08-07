@@ -1,4 +1,4 @@
-# infrastructure/modules/ec2/main.tf
+# infrastructure/modules/ec2/main.tf 
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
@@ -9,27 +9,23 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
-resource "aws_launch_template" "app" {
-  name_prefix   = "${var.environment}-app-"
-  image_id      = data.aws_ami.amazon_linux.id
-  instance_type = var.instance_type
-  key_name      = var.key_pair_name != "" ? var.key_pair_name : null
-
+# Creating direct instances
+resource "aws_instance" "app" {
+  count                  = 2
+  ami                    = data.aws_ami.amazon_linux.id
+  instance_type          = var.instance_type
+  key_name               = var.key_pair_name != "" ? var.key_pair_name : null
+  subnet_id              = var.private_subnets[count.index % length(var.private_subnets)]
   vpc_security_group_ids = [var.security_group_id]
+  iam_instance_profile   = var.instance_profile
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
     environment = var.environment
-      port        = var.port
+    port        = var.port
   }))
 
-  iam_instance_profile {
-    name = var.instance_profile
-  }
-  tag_specifications {
-    resource_type = "instance"
-    tags = {
-      Name = "${var.environment}-app-instance"
-    }
+  tags = {
+    Name = "${var.environment}-app-instance-${count.index + 1}"
   }
 
   lifecycle {
@@ -37,29 +33,10 @@ resource "aws_launch_template" "app" {
   }
 }
 
-resource "aws_autoscaling_group" "app" {
-  name                = "${var.environment}-app-asg"
-  vpc_zone_identifier = var.private_subnets
-  target_group_arns   = [var.target_group_arn]
-  health_check_type   = "ELB"
-  health_check_grace_period = 300
-
-  min_size         = 1
-  max_size         = 3
-  desired_capacity = 2
-
-  launch_template {
-    id      = aws_launch_template.app.id
-    version = "$Latest"
-  }
-
-  tag {
-    key                 = "Name"
-    value               = "${var.environment}-app-asg"
-    propagate_at_launch = false
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
+# Attach instances to target group
+resource "aws_lb_target_group_attachment" "app" {
+  count            = length(aws_instance.app)
+  target_group_arn = var.target_group_arn
+  target_id        = aws_instance.app[count.index].id
+  port             = var.port
 }

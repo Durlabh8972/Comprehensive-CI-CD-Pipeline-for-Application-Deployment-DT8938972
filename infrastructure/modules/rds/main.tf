@@ -9,7 +9,7 @@ resource "aws_db_subnet_group" "main" {
 }
 
 resource "aws_db_parameter_group" "main" {
-  family = "postgres15"
+  family = "postgres17"
   name   = "${var.environment}-db-params"
 
   parameter {
@@ -26,13 +26,13 @@ resource "aws_db_instance" "main" {
   identifier = "${var.environment}-todoapp-db"
 
   allocated_storage     = 20
-  max_allocated_storage = 100
+  max_allocated_storage = 70
   storage_type          = "gp2"
   storage_encrypted     = true
 
   db_name  = var.db_name
   engine   = "postgres"
-  engine_version = "15.4"
+  engine_version = "17.4"
   instance_class = var.instance_class
 
   username = var.db_username

@@ -1,4 +1,3 @@
-# -------------------------------------------------------------------
 # infrastructure/modules/alb/variables.tf
 variable "environment" {
   description = "Environment name"

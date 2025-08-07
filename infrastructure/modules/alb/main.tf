@@ -1,4 +1,3 @@
-# -------------------------------------------------------------------
 # infrastructure/modules/alb/main.tf
 resource "aws_lb" "main" {
   name               = "${var.environment}-alb"

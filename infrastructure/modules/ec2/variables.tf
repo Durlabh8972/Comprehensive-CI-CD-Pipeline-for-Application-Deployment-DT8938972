@@ -1,4 +1,3 @@
-# -------------------------------------------------------------------
 # infrastructure/modules/ec2/variables.tf
 variable "environment" {
   description = "Environment name"

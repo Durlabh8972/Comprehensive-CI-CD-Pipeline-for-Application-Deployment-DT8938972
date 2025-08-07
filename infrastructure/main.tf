@@ -1,4 +1,3 @@
-
 # infrastructure/main.tf
 terraform {
   required_version = ">= 1.0"
@@ -9,20 +8,19 @@ terraform {
     }
   }
   
-  # Uncomment and configure for production
+  # # Configure for production
   # backend "s3" {
   #   bucket = "your-terraform-state-bucket"
   #   key    = "todo-app/terraform.tfstate"
   #   region = "us-east-1"
   # }
 }
-# For even better flexibility, you could use locals:
+
 locals {
   # Detect if running in CI/CD environment
   is_ci_environment = can(regex("^(true|1)$", lower(coalesce(var.ci_environment, "false"))))
 }
 
-# Alternative provider configuration using locals
 provider "aws" {
   # Automatically skip profile in CI environments
   profile = local.is_ci_environment ? null : var.aws_profile
@@ -37,20 +35,7 @@ provider "aws" {
     }
   }
 }
-# provider "aws" {
-#   # remember to comment below line when using remote backend
-#   profile = "default"
 
-#   region = var.aws_region
-  
-#   default_tags {
-#     tags = {
-#       Project     = "todo-cicd"
-#       Environment = var.environment
-#       ManagedBy   = "terraform"
-#     }
-#   }
-# }
 
 # Data sources
 data "aws_availability_zones" "available" {
@@ -112,7 +97,8 @@ resource "aws_security_group" "app" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Restrict this in production
+    # Restrict this in production
+    cidr_blocks = ["0.0.0.0/0"]  
   }
 
   egress {
@@ -206,7 +192,6 @@ resource "aws_cloudwatch_log_group" "app_logs" {
   name              = "/aws/ec2/${var.environment}-todo-app"
   retention_in_days = 7
 }
-
 
 # IAM Role for EC2 instances to access CloudWatch
 resource "aws_iam_role" "ec2_role" {

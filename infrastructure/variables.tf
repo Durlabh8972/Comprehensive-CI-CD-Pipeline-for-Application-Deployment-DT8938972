@@ -1,4 +1,4 @@
-# -------------------------------------------------------------------
+
 # infrastructure/variables.tf
 variable "aws_region" {
   description = "AWS region"
@@ -11,7 +11,7 @@ variable "environment" {
   type        = string
   default     = "development"
 }
-# This variable is used to determine if the environment is production or not
+# This variable to determine if env is production
 variable "use_aws_profile" {
   description = "Whether to use AWS profile for authentication"
   type        = bool

@@ -45,11 +45,7 @@ jobs:
 
   security-scan:
     name: Analyze (${{ matrix.language }})
-    # Runner size impacts CodeQL analysis time. To learn more, please see:
-    #   - https://gh.io/recommended-hardware-resources-for-running-codeql
-    #   - https://gh.io/supported-runners-and-hardware-resources
-    #   - https://gh.io/using-larger-runners (GitHub.com only)
-    # Consider using larger runners or machines with greater resources for possible analysis time improvements.
+    
     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
@@ -121,8 +117,8 @@ jobs:
         category: "/language:${{matrix.language}}"
  
   build:
-    # needs: [test, security-scan]
-    needs:  security-scan
+    needs: [test, security-scan]
+    # needs:  security-scan
     runs-on: ubuntu-latest
     
     steps:
@@ -158,78 +154,7 @@ jobs:
       with:
         name: frontend-image
         path: /tmp/frontend.tar
-
-  # terraform-plan:
-  #   needs: build
-  #   # needs: test
-  #   runs-on: ubuntu-latest
-  #   # env:
-  #   #   AWS_REGION: us-east-1 
-    
-  #   steps:
-  #   - uses: actions/checkout@v4
-    
-  #   - name: Setup Terraform
-  #     uses: hashicorp/setup-terraform@v3
-  #     with:
-  #       terraform_version: 1.5.0
-    
-  #   - name: Configure AWS credentials
-  #     uses: aws-actions/configure-aws-credentials@v4
-  #     with:
-  #       aws-region: ${{ vars.AWS_REGION }}
-  #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    
-  #   - name: Terraform Init
-  #     run: |
-  #       cd infrastructure
-  #       terraform init
-    
-  #   - name: Terraform Validate
-  #     run: |
-  #       cd infrastructure
-  #       terraform validate
-    
-  #   - name: Terraform Plan
-  #     run: |
-  #       cd infrastructure
-  #       terraform plan -no-color
-  #     env:
-  #       TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-
-  # deploy:
-  #   needs: [build, terraform-plan]
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
-    
-  #   steps:
-  #   - uses: actions/checkout@v4
-    
-  #   - name: Configure AWS credentials
-  #     uses: aws-actions/configure-aws-credentials@v4
-  #     with:
-  #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #       aws-region: ${{ vars.AWS_REGION }}
-    
-  #   - name: Setup Terraform
-  #     uses: hashicorp/setup-terraform@v3
-  #     with:
-  #       terraform_version: 1.5.0
-    
-  #   - name: Deploy Infrastructure
-  #     run: |
-  #       cd infrastructure
-  #       terraform init
-  #       terraform apply -auto-approve
-  #     env:
-  #       TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-    
-  #   - name: Deploy Application
-  #     run: |
-  #       echo "Application deployment would happen here"
-  #       echo "This could involve updating EC2 instances, ECS services, etc."
+  
   terraform-plan:
     needs: build
     runs-on: ubuntu-latest
@@ -246,7 +171,6 @@ jobs:
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-region: ${{ vars.AWS_REGION }}
-        # aws-region: ${{ env.AWS_REGION }}
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     
@@ -268,12 +192,11 @@ jobs:
         # Standard Terraform environment variables
         TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
         TF_VAR_aws_region: ${{ vars.AWS_REGION }}
-        # TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_use_aws_profile: false
         TF_VAR_ci_environment: true
         TF_VAR_key_pair_name: ${{ secrets.KEY_PAIR_NAME }}
         TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-
+  
   deploy:
     needs: [build, terraform-plan]
     runs-on: ubuntu-latest
@@ -288,12 +211,13 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ vars.AWS_REGION }}
-        # aws-region: ${{ env.AWS_REGION }}
     
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
+        # Allows capturing terraform output
+        terraform_wrapper: false  
     
     - name: Deploy Infrastructure
       run: |
@@ -301,20 +225,66 @@ jobs:
         terraform init
         terraform apply -auto-approve
       env:
-        # Environment variables that Terraform will automatically pick up
         TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
         TF_VAR_aws_region: ${{ vars.AWS_REGION }}
-        # TF_VAR_aws_region: ${{ env.AWS_REGION }}
         TF_VAR_use_aws_profile: false
         TF_VAR_ci_environment: true
         TF_VAR_key_pair_name: ${{ secrets.KEY_PAIR_NAME }}
         TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-        
-        # AWS credentials are automatically available through environment variables:
-        # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
-        # (Set by aws-actions/configure-aws-credentials action)
     
+    - name: Get Application URL
+      id: get_url
+      run: |
+        cd infrastructure
+        APP_URL=$(terraform output -raw application_url)
+        ALB_DNS=$(terraform output -raw load_balancer_dns)
+        DB_ENDPOINT=$(terraform output -raw database_endpoint)
+        
+        echo "app_url=$APP_URL" >> $GITHUB_OUTPUT
+        echo "alb_dns=$ALB_DNS" >> $GITHUB_OUTPUT
+        echo "db_endpoint=$DB_ENDPOINT" >> $GITHUB_OUTPUT
+       
     - name: Deploy Application
       run: |
-        echo "Application deployment would happen here"
-        echo "This could involve updating EC2 instances, ECS services, etc."
+       
+        echo "🎉 Deployment Summary:"
+        echo "Application URL: ${{ steps.get_url.outputs.app_url }}"
+        echo "ALB DNS: ${{ steps.get_url.outputs.alb_dns }}"
+    
+    - name: Health Check
+      run: |
+        echo "Performing health check..."
+        APP_URL="${{ steps.get_url.outputs.app_url }}"
+        
+        # Wait a bit for the load balancer to be ready
+        echo "Waiting 60 seconds for load balancer to be ready..."
+        sleep 60
+        
+        # Try to curl the application (with retries)
+        for i in {1..5}; do
+          echo "Health check attempt $i/5..."
+          if curl -f -s -o /dev/null -w "%{http_code}" "$APP_URL"; then
+            echo "✅ Application is responding!"
+            break
+          else
+            echo "❌ Application not responding yet, retrying in 30 seconds..."
+            sleep 30
+          fi
+        done
+    
+    - name: Create Deployment Summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # Deployment Successful!
+        
+        ## Access Your Application
+        - **Main URL**: [${{ steps.get_url.outputs.app_url }}](${{ steps.get_url.outputs.app_url }})
+        - **Load Balancer DNS**: ${{ steps.get_url.outputs.alb_dns }}
+        - **Environment**: ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+        
+        ## Infrastructure Details
+        - **Database Endpoint**: ${{ steps.get_url.outputs.db_endpoint }}
+        - **Deployed Branch**: ${{ github.ref_name }}
+        - **Commit SHA**: ${{ github.sha }}
+        
+        EOF

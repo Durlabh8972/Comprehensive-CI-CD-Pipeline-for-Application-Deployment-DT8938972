@@ -1,5 +1,3 @@
-
-# -------------------------------------------------------------------
 # infrastructure/modules/rds/outputs.tf
 output "endpoint" {
   description = "RDS instance endpoint"

@@ -1,4 +1,3 @@
-# -------------------------------------------------------------------
 # infrastructure/modules/vpc/variables.tf
 variable "environment" {
   description = "Environment name"

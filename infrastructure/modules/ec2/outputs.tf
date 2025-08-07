@@ -1,11 +1,14 @@
-# -------------------------------------------------------------------
-# infrastructure/modules/ec2/outputs.tf
-output "launch_template_id" {
-  description = "Launch template ID"
-  value       = aws_launch_template.app.id
+output "instance_ids" {
+  description = "IDs of the EC2 instances"
+  value       = aws_instance.app[*].id
 }
 
-output "autoscaling_group_name" {
-  description = "Auto Scaling Group name"
-  value       = aws_autoscaling_group.app.name
+output "private_ips" {
+  description = "Private IP addresses of the instances"
+  value       = aws_instance.app[*].private_ip
+}
+
+output "public_ips" {
+  description = "Public IP addresses of the instances (if in public subnets)"
+  value       = aws_instance.app[*].public_ip
 }
