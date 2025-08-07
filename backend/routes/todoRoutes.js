@@ -1,6 +1,7 @@
+// backend/routes/todoRoutes.js
+'use strict';
 const express = require('express');
 const todoController = require('../controllers/todoController');
-
 const router = express.Router();
 
 // Get all todos

@@ -15,6 +15,27 @@ on:
   #   - cron: '36 22 * * 5'
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Run ESLint
+        run: |
+          cd backend
+          npm run lint 
   test:
     runs-on: ubuntu-latest
     
@@ -32,11 +53,23 @@ jobs:
       run: |
         cd backend
         npm ci
+
+    - name: Create .env file for testing
+      # Create an environment file for the test database
+      run: |
+       
+        echo "DB_NAME=:memory:" > backend/.env.test
+        echo "DB_USER=user" >> backend/.env.test
+        echo "DB_PASSWORD=password" >> backend/.env.test
+        echo "DB_HOST=localhost" >> backend/.env.test
+        echo "DB_DIALECT=sqlite" >> backend/.env.test
+        echo "DB_PORT=5432" >> backend/.env.test
+
     
     - name: Run tests
       run: |
         cd backend
-        npm test
+        npm test -- --coverage
     
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
@@ -76,12 +109,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Add any setup steps before running the `github/codeql-action/init` action.
-    # This includes steps like installing compilers or runtimes (`actions/setup-node`
-    # or others). This is typically only required for manual builds.
-    # - name: Setup runtime (example)
-    #   uses: actions/setup-example@v1
-
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -94,13 +121,6 @@ jobs:
 
         # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
         # queries: security-extended,security-and-quality
-
-    # If the analyze step fails for one of the languages you are analyzing with
-    # "We were unable to automatically build your code", modify the matrix above
-    # to set the build mode to "manual" for that language. Then modify this step
-    # to build your code.
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
@@ -117,7 +137,7 @@ jobs:
         category: "/language:${{matrix.language}}"
  
   build:
-    needs: [test, security-scan]
+    needs: [test, security-scan, lint]
     # needs:  security-scan
     runs-on: ubuntu-latest
     
