@@ -1,24 +1,24 @@
-const express = require('express');
-const todoController = require('../controllers/todoController');
-
-const router = express.Router();
+// backend/routes/todoRoutes.js
+'use strict';
+import { Router } from 'express';
+import todoController from '../controllers/todoController';
+const router = Router();
 
 // Get all todos
-router.get('/', todoController.getAllTodos.bind(todoController));
+router.get('/', (req, res) => todoController.getAllTodos(req, res));
 
 // Get todo by id
-router.get('/:id', todoController.getTodoById.bind(todoController));
-
+router.get('/:id', (req, res) => todoController.getTodoById(req, res));
 // Create new todo
-router.post('/', todoController.createTodo.bind(todoController));
+router.post('/', (req, res) => todoController.createTodo(req, res));
 
 // Update todo
-router.put('/:id', todoController.updateTodo.bind(todoController));
+router.put('/:id', (req, res) => todoController.updateTodo(req, res));
 
 // Delete todo
-router.delete('/:id', todoController.deleteTodo.bind(todoController));
+router.delete('/:id', (req, res) => todoController.deleteTodo(req, res));
 
 // Get todo count
-router.get('/stats/count', todoController.getTodoCount.bind(todoController));
+router.get('/stats/count', (req, res) => todoController.getTodoCount(req, res));
 
-module.exports = router;
+export default router;

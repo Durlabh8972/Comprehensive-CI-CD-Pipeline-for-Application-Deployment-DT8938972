@@ -1,0 +1,222 @@
+# infrastructure/main.tf
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+  
+  # # Configure for production
+  # backend "s3" {
+  #   bucket = "your-terraform-state-bucket"
+  #   key    = "todo-app/terraform.tfstate"
+  #   region = "us-east-1"
+  # }
+}
+
+locals {
+  # Detect if running in CI/CD environment
+  is_ci_environment = can(regex("^(true|1)$", lower(coalesce(var.ci_environment, "false"))))
+}
+
+provider "aws" {
+  # Automatically skip profile in CI environments
+  profile = local.is_ci_environment ? null : var.aws_profile
+  region  = var.aws_region
+  
+  default_tags {
+    tags = {
+      Project     = "todo-cicd"
+      Environment = var.environment
+      ManagedBy   = "terraform"
+      DeployedBy  = local.is_ci_environment ? "github-actions" : "local"
+    }
+  }
+}
+
+
+# Data sources
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+# VPC Module
+module "vpc" {
+  source = "./modules/vpc"
+  
+  environment         = var.environment
+  vpc_cidr           = var.vpc_cidr
+  availability_zones = slice(data.aws_availability_zones.available.names, 0, 2)
+}
+
+# Security Groups
+resource "aws_security_group" "alb" {
+  name_prefix = "${var.environment}-alb-"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.environment}-alb-sg"
+  }
+}
+
+resource "aws_security_group" "app" {
+  name_prefix = "${var.environment}-app-"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port       = 3000
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    # Restrict this in production
+    cidr_blocks = ["0.0.0.0/0"]  
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.environment}-app-sg"
+  }
+}
+
+resource "aws_security_group" "rds" {
+  name_prefix = "${var.environment}-rds-"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  tags = {
+    Name = "${var.environment}-rds-sg"
+  }
+}
+
+# Application Load Balancer
+module "alb" {
+  source = "./modules/alb"
+  
+  environment       = var.environment
+  vpc_id           = module.vpc.vpc_id
+  public_subnets   = module.vpc.public_subnets
+  security_group_id = aws_security_group.alb.id
+}
+
+# EC2 Instances
+module "ec2" {
+  source = "./modules/ec2"
+  
+  environment        = var.environment
+  vpc_id            = module.vpc.vpc_id
+  private_subnets   = module.vpc.private_subnets
+  security_group_id = aws_security_group.app.id
+  target_group_arn  = module.alb.target_group_arn
+  instance_type     = var.instance_type
+  key_pair_name     = var.key_pair_name
+  instance_profile   = aws_iam_instance_profile.ec2_profile.name
+}
+
+# RDS Database
+module "rds" {
+  source = "./modules/rds"
+  
+  environment        = var.environment
+  vpc_id            = module.vpc.vpc_id
+  private_subnets   = module.vpc.private_subnets
+  security_group_id = aws_security_group.rds.id
+  db_name           = var.db_name
+  db_username       = var.db_username
+  db_password       = var.db_password
+  instance_class    = var.db_instance_class
+}
+
+# S3 Bucket for static assets
+resource "aws_s3_bucket" "app_assets" {
+  bucket = "${var.environment}-todo-app-assets-${random_string.bucket_suffix.result}"
+}
+
+resource "random_string" "bucket_suffix" {
+  length  = 8
+  special = false
+  upper   = false
+}
+
+resource "aws_s3_bucket_public_access_block" "app_assets" {
+  bucket = aws_s3_bucket.app_assets.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# CloudWatch Log Group
+resource "aws_cloudwatch_log_group" "app_logs" {
+  name              = "/aws/ec2/${var.environment}-todo-app"
+  retention_in_days = 7
+}
+
+# IAM Role for EC2 instances to access CloudWatch
+resource "aws_iam_role" "ec2_role" {
+  name = "${var.environment}-ec2-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_cloudwatch" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "${var.environment}-ec2-profile"
+  role = aws_iam_role.ec2_role.name
+}
