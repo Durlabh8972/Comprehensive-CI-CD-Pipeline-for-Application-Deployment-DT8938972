@@ -54,11 +54,13 @@ const cors = require('cors');
 const helmet = require('helmet');
 const todoRoutes = require('./routes/todoRoutes');
 const sequelize = require('./config/database');
+const sequelize = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.use(cors());
 app.use(cors());
 app.use(helmet());
 app.use(express.json());
@@ -69,8 +71,12 @@ app.use('/api/todos', todoRoutes);
 // Root endpoint
 app.get('/', (req, res) => {
   res.send('Todo API is running...');
+// Root endpoint
+app.get('/', (req, res) => {
+  res.send('Todo API is running...');
 });
 
+// Database synchronization and server start
 // Database synchronization and server start
 async function startServer() {
   try {
@@ -88,6 +94,8 @@ async function startServer() {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
+    console.error('Unable to connect to the database:', error);
+    process.exit(1);
     console.error('Unable to connect to the database:', error);
     process.exit(1);
   }
