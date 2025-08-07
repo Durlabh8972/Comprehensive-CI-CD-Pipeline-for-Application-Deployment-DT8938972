@@ -65,7 +65,7 @@ services:
       context: .
       # context: ./backend
       dockerfile: ./docker/Dockerfile.backend
-    container_name: jest-test-runner
+    container_name: jest-test-runner-container
     depends_on:
       postgresdb:
         condition: service_healthy
