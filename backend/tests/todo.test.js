@@ -1,13 +1,16 @@
-// backend/tests/todo.test.js
-const request = require('supertest');
-const { app, sequelize } = require('../server'); 
-const Todo = require('../models/todoModel'); 
-const todoService = require('../services/todoService');
+'use strict';
+import request from 'supertest';
+import  app, {startServer } from '../server'; // Import startServer
+import { sequelize } from '../config/database';
+import Todo from '../models/todoModel';
+import todoService from '../services/todoService';
 
+let server;
 
 // Uses an in-memory SQLite database for tests
 beforeAll(async () => {
-  // Import `sequelize` instance from server.js
+  // Start the server and assign the returned instance
+  server = await startServer(); 
   await sequelize.sync({ force: true });
 });
 
@@ -16,8 +19,9 @@ beforeEach(async () => {
   await Todo.destroy({ where: {}, truncate: true });
 });
 
-// Close the database connection after all tests
+// Close the database connection AND the server after all tests
 afterAll(async () => {
+  await new Promise(resolve => server.close(resolve));
   await sequelize.close();
 });
 
@@ -76,21 +80,20 @@ describe('Todo API', () => {
     });
     
     it('should return 500 if the service throws an error', async () => {
-    jest.spyOn(todoService, 'getTodoById').mockRejectedValue(new Error('Something went wrong'));
+      const mock = jest.spyOn(todoService, 'getTodoById').mockRejectedValue(new Error('Something went wrong'));
 
-    const res = await request(app).get('/api/todos/1');
+      const res = await request(app).get('/api/todos/1');
 
-    expect(res.statusCode).toEqual(500);
-    expect(res.body).toHaveProperty('error', 'Internal server error');
+      expect(res.statusCode).toEqual(500);
+      expect(res.body).toHaveProperty('error', 'Internal server error');
 
-  // Restore the original function after the test
-  todoService.getTodoById.mockRestore();
-});
+      mock.mockRestore();
+    });
 
     it('should return 400 for an invalid ID', async () => {
-        const res = await request(app).get('/api/todos/abc');
-        expect(res.statusCode).toEqual(400);
-        expect(res.body).toHaveProperty('error', 'Invalid todo ID');
+      const res = await request(app).get('/api/todos/abc');
+      expect(res.statusCode).toEqual(400);
+      expect(res.body).toHaveProperty('error', 'Invalid todo ID');
     });
   });
 
@@ -138,9 +141,9 @@ describe('Todo API', () => {
   describe('GET /api/todos/stats/count', () => {
     it('should return the total count of todos', async () => {
         await Todo.bulkCreate([
-            { title: 'Count 1' },
-            { title: 'Count 2' },
-            { title: 'Count 3' },
+          { title: 'Count 1' },
+          { title: 'Count 2' },
+          { title: 'Count 3' },
         ]);
 
         const res = await request(app).get('/api/todos/stats/count');

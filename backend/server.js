@@ -1,27 +1,23 @@
-// backend/server.js
+// server.js
 'use strict';
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const todoRoutes = require('./routes/todoRoutes');
-const sequelize = require('./config/database');
-const sequelize = require('./config/database');
+import express, { json } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import todoRoutes from './routes/todoRoutes';
+import { sequelize, authenticate, sync } from './config/database';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(cors());
 app.use(helmet());
-app.use(express.json());
+app.use(json());
 
 // Routes
 app.use('/api/todos', todoRoutes);
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.send('Todo API is running...');
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.send('Todo API is running...');
@@ -29,28 +25,22 @@ app.get('/', (req, res) => {
 
 async function startServer() {
   try {
-    await sequelize.authenticate();
-    console.log('Database connection has been established successfully.');
+    await authenticate();
     
-    // Sync all models with the database. 
-    // { force: true } will drop the table if it already exists. Use with caution.
-    await sequelize.sync(); 
-    console.log('All models were synchronized successfully.');
+    await sync(); 
 
     return app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
-    process.exit(1);
-    console.error('Unable to connect to the database:', error);
+    console.error('Unable to start the server:', error);
     process.exit(1);
   }
 }
 
 let server;
 if (require.main === module) {
-  server = startServer(); // The global `server` variable is assigned the promise.
+  server = startServer(); 
 }
 
 // Handle graceful shutdown on SIGINT and SIGTERM
@@ -69,4 +59,9 @@ process.on('SIGTERM', () => {
   }
 });
 
-module.exports = { app, startServer, sequelize }; // Export for testing
+// export default { app, startServer, sequelize }; 
+// Export the Express app as the default export
+export default app; 
+
+// Export other components as named exports
+export { startServer, sequelize };

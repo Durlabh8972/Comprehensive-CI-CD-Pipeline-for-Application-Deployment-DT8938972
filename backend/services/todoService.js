@@ -1,7 +1,7 @@
 // backend/services/todoService.js
 // This service handles business logic for todos, interacting with the Todo model.
 'use strict';
-const Todo = require('../models/todoModel');
+import Todo from '../models/todoModel';
 
 class TodoService {
   async getAllTodos() {
@@ -47,4 +47,4 @@ class TodoService {
   }
 }
 
-module.exports = new TodoService();
+export default new TodoService();

@@ -1,6 +1,6 @@
 // backend/db/todoDb.js
 'use strict';
-const { Pool } = require('pg');
+import { Pool } from 'pg';
 // require('dotenv').config();
 
 require('dotenv').config({ path: '../.env' });
@@ -73,4 +73,4 @@ class TodoDb {
     }
 }
 
-module.exports = new TodoDb();
+export default new TodoDb();
