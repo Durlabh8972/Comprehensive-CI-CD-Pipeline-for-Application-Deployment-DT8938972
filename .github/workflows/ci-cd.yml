@@ -243,6 +243,11 @@ jobs:
       run: |
         cd infrastructure
         terraform init
+        
+        terraform import aws_cloudwatch_log_group.app_logs /aws/ec2/production-todo-app || true
+        terraform import aws_iam_role.ec2_role production-ec2-role || true
+        terraform import module.rds.aws_db_subnet_group.main production-db-subnet-group || true
+        terraform import module.rds.aws_db_parameter_group.main production-db-params || true
         terraform apply -auto-approve
       env:
         TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
