@@ -1,7 +1,7 @@
 # infrastructure/modules/vpc/outputs.tf
 output "vpc_id" {
   description = "VPC ID"
-  value       = aws_vpc.main.id
+  value       = data.aws_vpc.existing.id
 }
 
 output "public_subnets" {
