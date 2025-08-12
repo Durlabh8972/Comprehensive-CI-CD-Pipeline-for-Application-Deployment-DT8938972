@@ -1,7 +1,7 @@
 
 // backend/controllers/todoController.js
 'use strict';
-import todoService  from '../services/todoService';
+import todoService from '../services/todoService';
 
 class TodoController {
   async getAllTodos(req, res) {
@@ -9,9 +9,8 @@ class TodoController {
       const todos = await todoService.getAllTodos();
       res.json(todos);
     } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
       console.error("An error occurred:", error);
-      
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -30,7 +29,7 @@ class TodoController {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
-  
+
   async createTodo(req, res) {
     try {
       const { title, completed } = req.body;
@@ -50,7 +49,7 @@ class TodoController {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid todo ID' });
       }
-      
+
       const { title, completed } = req.body;
       const updatedTodo = await todoService.updateTodo(id, { title, completed });
 

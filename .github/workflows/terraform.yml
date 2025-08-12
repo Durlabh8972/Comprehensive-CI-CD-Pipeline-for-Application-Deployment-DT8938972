@@ -1,0 +1,88 @@
+name: "Terraform Validation and Deployment"
+
+on:
+  push:
+    branches: ["main", "develop"]
+    paths:
+      - "infrastructure/**"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "infrastructure/**"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  terraform:
+    name: "Terraform"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.0.0"
+
+      - name: Install AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+      - name: Terraform Init
+        run: |
+          cd infrastructure
+          terraform init -backend=false
+
+      - name: Terraform Format
+        run: |
+          cd infrastructure
+          terraform fmt -check
+
+      - name: Terraform Validate
+        run: |
+          cd infrastructure
+          terraform validate
+
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        run: |
+          cd infrastructure
+          terraform plan -no-color
+        continue-on-error: true
+
+      - name: Import and Deploy Infrastructure
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd infrastructure
+          # Convert PowerShell script to bash for Linux environment
+          # List VPCs
+          echo "Listing existing VPCs..."
+          aws ec2 describe-vpcs --query 'Vpcs[*].[VpcId,Tags[?Key==`Name`].Value]' --output table
+
+          # List IAM profiles
+          echo "Listing IAM instance profiles..."
+          aws iam list-instance-profiles --query 'InstanceProfiles[*].[InstanceProfileName,InstanceProfileId]' --output table
+
+          # Import existing resources
+          echo "Importing existing resources..."
+          terraform import aws_cloudwatch_log_group.app_logs "/aws/ec2/production-todo-app" || true
+          terraform import aws_iam_role.ec2_role "production-ec2-role" || true
+          terraform import aws_iam_instance_profile.ec2_profile "production-ec2-profile" || true
+
+          # Apply changes
+          terraform apply -auto-approve
