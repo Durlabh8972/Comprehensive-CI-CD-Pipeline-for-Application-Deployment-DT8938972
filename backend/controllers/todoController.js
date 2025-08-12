@@ -50,9 +50,12 @@ class TodoController {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid todo ID' });
       }
+      
       const { title, completed } = req.body;
       const updatedTodo = await todoService.updateTodo(id, { title, completed });
+
       res.json(updatedTodo);
+
     } catch (error) {
       if (error.message === 'Todo not found') {
         return res.status(404).json({ error: error.message });
