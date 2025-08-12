@@ -1,6 +1,6 @@
 services:
   postgresdb:
-    image: postgres
+    image: postgres:15
     restart: unless-stopped
     env_file: ./.env
     environment:
@@ -47,12 +47,13 @@ services:
       - /app/node_modules
     healthcheck:
       test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => { process.exit(1) })",
-        ]
+        # [
+        #   "CMD",
+        #   "node",
+        #   "-e",
+        #   "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => { process.exit(1) })",
+        # ]
+        ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -60,26 +61,26 @@ services:
     networks:
       - app-network
 
-  test:
-    build:
-      context: .
-      # context: ./backend
-      dockerfile: ./docker/Dockerfile.backend
-    container_name: jest-test-runner-container
-    depends_on:
-      postgresdb:
-        condition: service_healthy
-    environment:
-      - DB_HOST=postgresdb
-      - DB_USER=${POSTGRESDB_USER}
-      - DB_PASSWORD=${POSTGRESDB_ROOT_PASSWORD}
-      - DB_NAME=${POSTGRESDB_DATABASE}
-      - DB_PORT=${POSTGRESDB_DOCKER_PORT}
-      - NODE_ENV=test
-    env_file: ./.env
-    networks:
-      - app-network
-    command: ["npm", "test"]
+  # test:
+  #   build:
+  #     context: .
+  #     # context: ./backend
+  #     dockerfile: ./docker/Dockerfile.backend
+  #   container_name: jest-test-runner-container
+  #   depends_on:
+  #     postgresdb:
+  #       condition: service_healthy
+  #   environment:
+  #     - DB_HOST=postgresdb
+  #     - DB_USER=${POSTGRESDB_USER}
+  #     - DB_PASSWORD=${POSTGRESDB_ROOT_PASSWORD}
+  #     - DB_NAME=${POSTGRESDB_DATABASE}
+  #     - DB_PORT=${POSTGRESDB_DOCKER_PORT}
+  #     - NODE_ENV=test
+  #   env_file: ./.env
+  #   networks:
+  #     - app-network
+  #   command: ["npm", "test"]
   frontend:
     build:
       context: .

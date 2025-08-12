@@ -1,4 +1,4 @@
-# infrastructure/main.tf
+# main.tf - Simple single EC2 deployment
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -7,55 +7,93 @@ terraform {
       version = "~> 5.0"
     }
   }
-  
-  # # Configure for production
-  # backend "s3" {
-  #   bucket = "your-terraform-state-bucket"
-  #   key    = "todo-app/terraform.tfstate"
-  #   region = "us-east-1"
-  # }
-}
-
-locals {
-  # Detect if running in CI/CD environment
-  is_ci_environment = can(regex("^(true|1)$", lower(coalesce(var.ci_environment, "false"))))
 }
 
 provider "aws" {
-  # Automatically skip profile in CI environments
-  profile = local.is_ci_environment ? null : var.aws_profile
-  region  = var.aws_region
+  region = var.aws_region
   
   default_tags {
     tags = {
-      Project     = "todo-cicd"
+      Project     = "todo-app"
       Environment = var.environment
       ManagedBy   = "terraform"
-      DeployedBy  = local.is_ci_environment ? "github-actions" : "local"
     }
   }
 }
-
 
 # Data sources
 data "aws_availability_zones" "available" {
   state = "available"
 }
 
-# VPC Module
-module "vpc" {
-  source = "./modules/vpc"
-  
-  environment         = var.environment
-  vpc_cidr           = var.vpc_cidr
-  availability_zones = slice(data.aws_availability_zones.available.names, 0, 2)
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-22.04-amd64-server-*"]
+  }
 }
 
-# Security Groups
-resource "aws_security_group" "alb" {
-  name_prefix = "${var.environment}-alb-"
-  vpc_id      = module.vpc.vpc_id
+# VPC
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
 
+  tags = {
+    Name = "${var.environment}-vpc"
+  }
+}
+
+# Internet Gateway
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${var.environment}-igw"
+  }
+}
+
+# Public Subnet
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[0]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.environment}-public-subnet"
+  }
+}
+
+# Route Table
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "${var.environment}-public-rt"
+  }
+}
+
+# Route Table Association
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+# Security Group
+resource "aws_security_group" "app" {
+  name_prefix = "${var.environment}-app-"
+  vpc_id      = aws_vpc.main.id
+
+  # HTTP
   ingress {
     from_port   = 80
     to_port     = 80
@@ -63,44 +101,31 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Backend API
   ingress {
-    from_port   = 443
-    to_port     = 443
+    from_port   = 3000
+    to_port     = 3000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+  # PostgreSQL (for external access if needed)
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "${var.environment}-alb-sg"
-  }
-}
-
-resource "aws_security_group" "app" {
-  name_prefix = "${var.environment}-app-"
-  vpc_id      = module.vpc.vpc_id
-
-  ingress {
-    from_port       = 3000
-    to_port         = 3000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
+  # SSH
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    # Restrict this in production
-    cidr_blocks = ["0.0.0.0/0"]  
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # All outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -113,110 +138,40 @@ resource "aws_security_group" "app" {
   }
 }
 
-resource "aws_security_group" "rds" {
-  name_prefix = "${var.environment}-rds-"
-  vpc_id      = module.vpc.vpc_id
+# User Data Script
+locals {
+  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
+    environment = var.environment
+  }))
+}
 
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app.id]
+# EC2 Instance
+resource "aws_instance" "app" {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type
+  key_name              = var.key_pair_name != "" ? var.key_pair_name : null
+  vpc_security_group_ids = [aws_security_group.app.id]
+  subnet_id             = aws_subnet.public.id
+  
+  user_data = local.user_data
+
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = 20
+    encrypted   = true
   }
 
   tags = {
-    Name = "${var.environment}-rds-sg"
+    Name = "${var.environment}-todo-app"
   }
 }
 
-# Application Load Balancer
-module "alb" {
-  source = "./modules/alb"
-  
-  environment       = var.environment
-  vpc_id           = module.vpc.vpc_id
-  public_subnets   = module.vpc.public_subnets
-  security_group_id = aws_security_group.alb.id
-}
+# Elastic IP (optional but recommended)
+resource "aws_eip" "app" {
+  instance = aws_instance.app.id
+  domain   = "vpc"
 
-# EC2 Instances
-module "ec2" {
-  source = "./modules/ec2"
-  
-  environment        = var.environment
-  vpc_id            = module.vpc.vpc_id
-  private_subnets   = module.vpc.private_subnets
-  security_group_id = aws_security_group.app.id
-  target_group_arn  = module.alb.target_group_arn
-  instance_type     = var.instance_type
-  key_pair_name     = var.key_pair_name
-  instance_profile   = aws_iam_instance_profile.ec2_profile.name
-}
-
-# RDS Database
-module "rds" {
-  source = "./modules/rds"
-  
-  environment        = var.environment
-  vpc_id            = module.vpc.vpc_id
-  private_subnets   = module.vpc.private_subnets
-  security_group_id = aws_security_group.rds.id
-  db_name           = var.db_name
-  db_username       = var.db_username
-  db_password       = var.db_password
-  instance_class    = var.db_instance_class
-}
-
-# S3 Bucket for static assets
-resource "aws_s3_bucket" "app_assets" {
-  bucket = "${var.environment}-todo-app-assets-${random_string.bucket_suffix.result}"
-}
-
-resource "random_string" "bucket_suffix" {
-  length  = 8
-  special = false
-  upper   = false
-}
-
-resource "aws_s3_bucket_public_access_block" "app_assets" {
-  bucket = aws_s3_bucket.app_assets.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# CloudWatch Log Group
-resource "aws_cloudwatch_log_group" "app_logs" {
-  name              = "/aws/ec2/${var.environment}-todo-app"
-  retention_in_days = 7
-}
-
-# IAM Role for EC2 instances to access CloudWatch
-resource "aws_iam_role" "ec2_role" {
-  name = "${var.environment}-ec2-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ec2_cloudwatch" {
-  role       = aws_iam_role.ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-}
-
-resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "${var.environment}-ec2-profile"
-  role = aws_iam_role.ec2_role.name
+  tags = {
+    Name = "${var.environment}-app-eip"
+  }
 }

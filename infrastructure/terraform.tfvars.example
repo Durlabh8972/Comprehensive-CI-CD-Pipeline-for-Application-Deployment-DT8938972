@@ -1,14 +1,12 @@
+# terraform.tfvars.example
+# Copy this file to terraform.tfvars and customize the values
 
+aws_region    = "us-east-1"
+environment   = "development"
+instance_type = "t2.small"
 
-# -------------------------------------------------------------------
-# infrastructure/terraform.tfvars.example
-aws_region = "us-east-1"
-environment = "development"
-vpc_cidr = "10.0.0.0/16"
-instance_type = "t2.micro"
-key_pair_name = ""  # Optional: your EC2 key pair name
-db_name = "todoapp"
-db_username = "todouser"
-db_password = "your-secure-password-here"  # Change this!
-db_instance_class = "db.t3.micro"
+# Optional: If you want SSH access, specify your key pair name
+# key_pair_name = "my-ec2-keypair"
 
+# Optional: Customize VPC CIDR if needed
+# vpc_cidr = "10.0.0.0/16"
