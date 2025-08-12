@@ -7,11 +7,11 @@ terraform import aws_cloudwatch_log_group.app_logs /aws/ec2/production-todo-app 
 # Import IAM Role  
 terraform import aws_iam_role.ec2_role production-ec2-role || true
 
-# Import Load Balancer
-terraform import module.alb.aws_lb.main production-alb || true
+# # Import Load Balancer
+# terraform import module.alb.aws_lb.main production-alb || true
 
 # Import Target Group
-terraform import module.alb.aws_lb_target_group.app production-app-tg || true
+terraform import module.alb.aws_lb_target_group.app arn:aws:elasticloadbalancing:us-east-1:440716895645:targetgroup/production-app-tg/1147c3f7892d388a || true
 
 # Import RDS Subnet Group
 terraform import module.rds.aws_db_subnet_group.main production-db-subnet-group || true
@@ -21,3 +21,9 @@ terraform import module.rds.aws_db_parameter_group.main production-db-params || 
 
 # Import EC2 Instance Profile
 terraform import aws_iam_instance_profile.ec2_profile production-ec2-profile || true
+
+# Import the existing DB subnet group
+terraform import module.rds.aws_db_subnet_group.main production-db-subnet-group || true
+
+# Import the existing load balancer
+terraform import module.alb.aws_lb.main arn:aws:elasticloadbalancing:us-east-1:440716895645:loadbalancer/app/production-alb/98186dfca4951ae8 || true
