@@ -1,7 +1,7 @@
 
 // backend/controllers/todoController.js
 'use strict';
-import todoService from '../services/todoService';
+import todoService from '../services/todoService.js';
 
 class TodoController {
   async getAllTodos(req, res) {

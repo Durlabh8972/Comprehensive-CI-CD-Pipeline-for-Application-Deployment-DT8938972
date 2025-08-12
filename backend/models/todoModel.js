@@ -1,7 +1,7 @@
 // models/todoModel.js
 'use strict';
 import { DataTypes } from 'sequelize';
-import { sequelize } from '../config/database';
+import { sequelize } from '../config/database.js';
 
 const Todo = sequelize.define('Todo', {
   id: {

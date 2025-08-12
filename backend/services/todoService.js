@@ -1,7 +1,7 @@
 // backend/services/todoService.js
 // This service handles business logic for todos, interacting with the Todo model.
 'use strict';
-import Todo from '../models/todoModel';
+import Todo from '../models/todoModel.js';
 
 class TodoService {
   async getAllTodos() {

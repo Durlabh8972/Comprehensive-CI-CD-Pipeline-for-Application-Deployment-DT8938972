@@ -3,8 +3,8 @@
 import express, { json } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import todoRoutes from './routes/todoRoutes';
-import { sequelize, authenticate, sync } from './config/database';
+import todoRoutes from './routes/todoRoutes.js';
+import { sequelize, authenticate, sync } from './config/database.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +14,10 @@ app.use(cors());
 app.use(helmet());
 app.use(json());
 
+//  Health check for Express backend routes
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
 // Routes
 app.use('/api/todos', todoRoutes);
 
@@ -39,9 +43,9 @@ async function startServer() {
 }
 
 let server;
-if (require.main === module) {
+// if (require.main === module) {
   server = startServer(); 
-}
+// }
 
 // Handle graceful shutdown on SIGINT and SIGTERM
 process.on('SIGTERM', () => {

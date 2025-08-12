@@ -1,7 +1,7 @@
 // backend/routes/todoRoutes.js
 'use strict';
 import { Router } from 'express';
-import todoController from '../controllers/todoController';
+import todoController from '../controllers/todoController.js';
 const router = Router();
 
 // Get all todos
