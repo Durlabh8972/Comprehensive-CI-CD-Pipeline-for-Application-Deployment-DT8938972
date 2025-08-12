@@ -15,7 +15,7 @@ data "aws_vpc" "existing" {
 # }
 
 resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.existing.id
 
   tags = {
     Name = "${var.environment}-igw"
@@ -40,7 +40,7 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
   count = length(var.availability_zones)
 
-  vpc_id            = aws_vpc.main.id
+  vpc_id            = data.aws_vpc.existing.id
   cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 10)
   availability_zone = var.availability_zones[count.index]
 
@@ -75,7 +75,7 @@ resource "aws_nat_gateway" "main" {
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.existing.id
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -90,7 +90,7 @@ resource "aws_route_table" "public" {
 resource "aws_route_table" "private" {
   count = 1  # Single route table for all private subnets
 
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.existing.id
 
   route {
     cidr_block     = "0.0.0.0/0"
