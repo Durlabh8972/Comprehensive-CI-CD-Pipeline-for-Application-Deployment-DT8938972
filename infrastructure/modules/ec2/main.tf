@@ -35,7 +35,7 @@ resource "aws_instance" "app" {
 
 # Attach instances to target group
 resource "aws_lb_target_group_attachment" "app" {
-  count            = length(aws_instance.app)
+  count            = 2  # Explicitly set the count based on your instance count
   target_group_arn = var.target_group_arn
   target_id        = aws_instance.app[count.index].id
   port             = var.port

@@ -45,7 +45,7 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  count = length(var.availability_zones)
+  count = 1  # Reduced to 1 NAT Gateway
 
   domain = "vpc"
   depends_on = [aws_internet_gateway.main]
@@ -56,13 +56,13 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
-  count = length(var.availability_zones)
+  count = 1  # Single NAT Gateway
 
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id  # Place in first public subnet
 
   tags = {
-    Name = "${var.environment}-nat-gateway-${count.index + 1}"
+    Name = "${var.environment}-nat-gateway"
   }
 
   depends_on = [aws_internet_gateway.main]
@@ -82,30 +82,30 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table" "private" {
-  count = length(var.availability_zones)
+  count = 1  # Single route table for all private subnets
 
   vpc_id = aws_vpc.main.id
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+    nat_gateway_id = aws_nat_gateway.main[0].id
   }
 
   tags = {
-    Name = "${var.environment}-private-rt-${count.index + 1}"
+    Name = "${var.environment}-private-rt"
   }
 }
 
 resource "aws_route_table_association" "public" {
-  count = length(aws_subnet.public)
+  count = 2  # Explicitly set the count based on your AZ count
 
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id
 }
 
 resource "aws_route_table_association" "private" {
-  count = length(aws_subnet.private)
+  count = 2  # Explicitly set the count based on your AZ count
 
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
+  route_table_id = aws_route_table.private[0].id  # Use the single private route table
 }
