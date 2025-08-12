@@ -21,13 +21,10 @@ This project implements a complete CI/CD pipeline for a Todo application using m
 │   ├── Dockerfile.backend
 │   └── Dockerfile.frontend
 ├── infrastructure/       # Terraform AWS infrastructure
-│   ├── modules/
-│   │   ├── alb/         # Application Load Balancer
-│   │   ├── ec2/         # EC2 instances
-│   │   ├── rds/         # RDS database
-│   │   └── vpc/         # VPC networking
 │   ├── main.tf
 │   ├── variables.tf
+│   ├── user-data.sh
+│   ├── terraform.tfvars
 │   └── outputs.tf
 └── docker-compose.yml    # Local development setup
 ```
@@ -121,7 +118,6 @@ The project uses GitHub Actions for CI/CD. The pipeline:
 1. Runs tests
 2. Builds Docker images
 3. Deploys to AWS infrastructure
-
 
 ## Contributing
 
