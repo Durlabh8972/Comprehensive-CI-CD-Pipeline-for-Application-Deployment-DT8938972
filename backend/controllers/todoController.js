@@ -2,7 +2,6 @@
 // backend/controllers/todoController.js
 'use strict';
 import todoService from '../services/todoService';
-import todoService from '../services/todoService';
 
 class TodoController {
   async getAllTodos(req, res) {
@@ -89,7 +88,7 @@ class TodoController {
     try {
       const count = await todoService.getTodoCount();
       res.json({ count });
-    } catch (err) {
+    } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
       console.log("An error occurred:", error);
     }
