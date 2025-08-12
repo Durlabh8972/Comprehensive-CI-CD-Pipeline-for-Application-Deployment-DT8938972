@@ -2,14 +2,17 @@ name: "CodeQL Advanced"
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
     paths-ignore:
-      - '**/*.md'
-      - '**/*.txt' 
-      - '**/*.test.js'
+      - "**/*.md"
+      - "**/*.txt"
+      - "**/*.test.js"
   workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1 # Change this to your AWS region
 
   # schedule:
   #   - cron: '36 22 * * 5'
@@ -23,8 +26,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: "18"
+          cache: "npm"
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
@@ -35,50 +38,49 @@ jobs:
       - name: Run ESLint
         run: |
           cd backend
-          npm run lint 
+          npm run lint
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-    
-    - name: Install dependencies
-      run: |
-        cd backend
-        npm ci
+      - uses: actions/checkout@v4
 
-    - name: Create .env file for testing
-      # Create an environment file for the test database
-      run: |
-       
-        echo "DB_NAME=:memory:" > backend/.env.test
-        echo "DB_USER=user" >> backend/.env.test
-        echo "DB_PASSWORD=password" >> backend/.env.test
-        echo "DB_HOST=localhost" >> backend/.env.test
-        echo "DB_DIALECT=sqlite" >> backend/.env.test
-        echo "DB_PORT=5432" >> backend/.env.test
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
 
-    
-    - name: Run tests
-      run: |
-        cd backend
-        npm test -- --coverage
-    
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
-      with:
-        directory: backend/coverage
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Create .env file for testing
+        # Create an environment file for the test database
+        run: |
+
+          echo "DB_NAME=:memory:" > backend/.env.test
+          echo "DB_USER=user" >> backend/.env.test
+          echo "DB_PASSWORD=password" >> backend/.env.test
+          echo "DB_HOST=localhost" >> backend/.env.test
+          echo "DB_DIALECT=sqlite" >> backend/.env.test
+          echo "DB_PORT=5432" >> backend/.env.test
+
+      - name: Run tests
+        run: |
+          cd backend
+          npm test -- --coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          directory: backend/coverage
 
   security-scan:
     name: Analyze (${{ matrix.language }})
-    
+
     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
@@ -94,8 +96,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: 
-        - language: 'javascript-typescript'
+        include:
+          - language: "javascript-typescript"
 
         # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
         # Use `c-cpp` to analyze code written in C, C++ or both
@@ -106,210 +108,210 @@ jobs:
         # If you are analyzing a compiled language, you can modify the 'build-mode' for that language to customize how
         # your codebase is analyzed, see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: ${{ matrix.language }}
-        build-mode: ${{ matrix.build-mode }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file.
-        # Prefix the list here with "+" to use these queries and those in the config file.
+      # Initializes the CodeQL tools for scanning.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # If you wish to specify custom queries, you can do so here or in a config file.
+          # By default, queries listed here will override any specified in a config file.
+          # Prefix the list here with "+" to use these queries and those in the config file.
 
-        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
-        # queries: security-extended,security-and-quality
-    - if: matrix.build-mode == 'manual'
-      shell: bash
-      run: |
-        echo 'If you are using a "manual" build mode for one or more of the' \
-          'languages you are analyzing, replace this with the commands to build' \
-          'your code, for example:'
-        echo '  make bootstrap'
-        echo '  make release'
-        exit 1
+          # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+          # queries: security-extended,security-and-quality
+      - if: matrix.build-mode == 'manual'
+        shell: bash
+        run: |
+          echo 'If you are using a "manual" build mode for one or more of the' \
+            'languages you are analyzing, replace this with the commands to build' \
+            'your code, for example:'
+          echo '  make bootstrap'
+          echo '  make release'
+          exit 1
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:${{matrix.language}}"
- 
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+
   build:
     needs: [test, security-scan, lint]
     # needs:  security-scan
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Build backend image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: docker/Dockerfile.backend
-        tags: todo-backend:${{ github.sha }}
-        outputs: type=docker,dest=/tmp/backend.tar
-    
-    - name: Build frontend image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: docker/Dockerfile.frontend
-        tags: todo-frontend:${{ github.sha }}
-        outputs: type=docker,dest=/tmp/frontend.tar
-    
-    - name: Upload backend artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: backend-image
-        path: /tmp/backend.tar
-    
-    - name: Upload frontend artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: frontend-image
-        path: /tmp/frontend.tar
-  
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.backend
+          tags: todo-backend:${{ github.sha }}
+          outputs: type=docker,dest=/tmp/backend.tar
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.frontend
+          tags: todo-frontend:${{ github.sha }}
+          outputs: type=docker,dest=/tmp/frontend.tar
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp/backend.tar
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-image
+          path: /tmp/frontend.tar
+
   terraform-plan:
     needs: build
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.5.0
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-region: ${{ vars.AWS_REGION }}
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    
-    - name: Terraform Init
-      run: |
-        cd infrastructure
-        terraform init
-    
-    - name: Terraform Validate
-      run: |
-        cd infrastructure
-        terraform validate
-    
-    - name: Terraform Plan
-      run: |
-        cd infrastructure
-        terraform plan -no-color
-      env:
-        # Standard Terraform environment variables
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-        TF_VAR_aws_region: ${{ vars.AWS_REGION }}
-        TF_VAR_use_aws_profile: false
-        TF_VAR_ci_environment: true
-        TF_VAR_key_pair_name: ${{ secrets.KEY_PAIR_NAME }}
-        TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-  
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Terraform Init
+        run: |
+          cd infrastructure
+          terraform init
+
+      - name: Terraform Validate
+        run: |
+          cd infrastructure
+          terraform validate
+
+      - name: Terraform Plan
+        run: |
+          cd infrastructure
+          terraform plan -no-color
+        env:
+          # Standard Terraform environment variables
+          TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_use_aws_profile: false
+          TF_VAR_ci_environment: true
+          TF_VAR_key_pair_name: ${{ secrets.KEY_PAIR_NAME }}
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+
   deploy:
     needs: [build, terraform-plan]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ vars.AWS_REGION }}
-    
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.5.0
-        # Allows capturing terraform output
-        terraform_wrapper: false  
-    
-    - name: Deploy Infrastructure
-      run: |
-        cd infrastructure
-        terraform init
-        
-        terraform import aws_cloudwatch_log_group.app_logs /aws/ec2/production-todo-app || true
-        terraform import aws_iam_role.ec2_role production-ec2-role || true
-        terraform import module.rds.aws_db_subnet_group.main production-db-subnet-group || true
-        terraform import module.rds.aws_db_parameter_group.main production-db-params || true
-        terraform apply -auto-approve
-      env:
-        TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-        TF_VAR_aws_region: ${{ vars.AWS_REGION }}
-        TF_VAR_use_aws_profile: false
-        TF_VAR_ci_environment: true
-        TF_VAR_key_pair_name: ${{ secrets.KEY_PAIR_NAME }}
-        TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-    
-    - name: Get Application URL
-      id: get_url
-      run: |
-        cd infrastructure
-        APP_URL=$(terraform output -raw application_url)
-        ALB_DNS=$(terraform output -raw load_balancer_dns)
-        DB_ENDPOINT=$(terraform output -raw database_endpoint)
-        
-        echo "app_url=$APP_URL" >> $GITHUB_OUTPUT
-        echo "alb_dns=$ALB_DNS" >> $GITHUB_OUTPUT
-        echo "db_endpoint=$DB_ENDPOINT" >> $GITHUB_OUTPUT
-       
-    - name: Deploy Application
-      run: |
-       
-        echo "Deployment Summary:"
-        echo "Application URL: ${{ steps.get_url.outputs.app_url }}"
-        echo "ALB DNS: ${{ steps.get_url.outputs.alb_dns }}"
-    
-    - name: Health Check
-      run: |
-        echo "Performing health check..."
-        APP_URL="${{ steps.get_url.outputs.app_url }}"
-        
-        # Wait a bit for the load balancer to be ready
-        echo "Waiting 60 seconds for load balancer to be ready..."
-        sleep 60
-        
-        # Try to curl the application (with retries)
-        for i in {1..5}; do
-          echo "Health check attempt $i/5..."
-          if curl -f -s -o /dev/null -w "%{http_code}" "$APP_URL"; then
-            echo "✅ Application is responding!"
-            break
-          else
-            echo "❌ Application not responding yet, retrying in 30 seconds..."
-            sleep 30
-          fi
-        done
-    
-    - name: Create Deployment Summary
-      run: |
-        cat >> $GITHUB_STEP_SUMMARY << EOF
-        # Deployment Successful!
-        
-        ## Access Your Application
-        - **Main URL**: [${{ steps.get_url.outputs.app_url }}](${{ steps.get_url.outputs.app_url }})
-        - **Load Balancer DNS**: ${{ steps.get_url.outputs.alb_dns }}
-        - **Environment**: ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
-        
-        ## Infrastructure Details
-        - **Database Endpoint**: ${{ steps.get_url.outputs.db_endpoint }}
-        - **Deployed Branch**: ${{ github.ref_name }}
-        - **Commit SHA**: ${{ github.sha }}
-        
-        EOF
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+          # Allows capturing terraform output
+          terraform_wrapper: false
+
+      - name: Deploy Infrastructure
+        run: |
+          cd infrastructure
+          terraform init
+
+          terraform import aws_cloudwatch_log_group.app_logs /aws/ec2/production-todo-app || true
+          terraform import aws_iam_role.ec2_role production-ec2-role || true
+          terraform import module.rds.aws_db_subnet_group.main production-db-subnet-group || true
+          terraform import module.rds.aws_db_parameter_group.main production-db-params || true
+          terraform apply -auto-approve
+        env:
+          TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_use_aws_profile: false
+          TF_VAR_ci_environment: true
+          TF_VAR_key_pair_name: ${{ secrets.KEY_PAIR_NAME }}
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+
+      - name: Get Application URL
+        id: get_url
+        run: |
+          cd infrastructure
+          APP_URL=$(terraform output -raw application_url)
+          ALB_DNS=$(terraform output -raw load_balancer_dns)
+          DB_ENDPOINT=$(terraform output -raw database_endpoint)
+
+          echo "app_url=$APP_URL" >> $GITHUB_OUTPUT
+          echo "alb_dns=$ALB_DNS" >> $GITHUB_OUTPUT
+          echo "db_endpoint=$DB_ENDPOINT" >> $GITHUB_OUTPUT
+
+      - name: Deploy Application
+        run: |
+
+          echo "Deployment Summary:"
+          echo "Application URL: ${{ steps.get_url.outputs.app_url }}"
+          echo "ALB DNS: ${{ steps.get_url.outputs.alb_dns }}"
+
+      - name: Health Check
+        run: |
+          echo "Performing health check..."
+          APP_URL="${{ steps.get_url.outputs.app_url }}"
+
+          # Wait a bit for the load balancer to be ready
+          echo "Waiting 60 seconds for load balancer to be ready..."
+          sleep 60
+
+          # Try to curl the application (with retries)
+          for i in {1..5}; do
+            echo "Health check attempt $i/5..."
+            if curl -f -s -o /dev/null -w "%{http_code}" "$APP_URL"; then
+              echo "✅ Application is responding!"
+              break
+            else
+              echo "❌ Application not responding yet, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
+
+      - name: Create Deployment Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # Deployment Successful!
+
+          ## Access Your Application
+          - **Main URL**: [${{ steps.get_url.outputs.app_url }}](${{ steps.get_url.outputs.app_url }})
+          - **Load Balancer DNS**: ${{ steps.get_url.outputs.alb_dns }}
+          - **Environment**: ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+
+          ## Infrastructure Details
+          - **Database Endpoint**: ${{ steps.get_url.outputs.db_endpoint }}
+          - **Deployed Branch**: ${{ github.ref_name }}
+          - **Commit SHA**: ${{ github.sha }}
+
+          EOF
