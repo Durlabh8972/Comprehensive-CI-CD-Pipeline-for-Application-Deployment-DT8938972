@@ -12,7 +12,7 @@ let sequelize
 if (process.env.NODE_ENV === 'test') {
   // Configuration for MySQL database (for tests)
   sequelize = new Sequelize({
-    dialect: process.env.DB_DIALECT,
+    dialect: process.env.DB_DIALECT|| 'sqlite',
     storage: process.env.DB_NAME,
     logging: false,
   });
@@ -24,7 +24,7 @@ if (process.env.NODE_ENV === 'test') {
     process.env.DB_PASSWORD,
     {
       host: process.env.DB_HOST,
-      dialect: process.env.DB_DIALECT,
+      dialect: process.env.DB_DIALECT|| 'postgres',
       logging: false, // Disable logging for cleaner output
     }
   );
