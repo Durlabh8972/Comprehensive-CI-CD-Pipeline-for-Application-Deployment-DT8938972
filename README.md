@@ -1,6 +1,6 @@
 # Comprehensive CI/CD Pipeline for Application Deployment
 
-This project implements a complete CI/CD pipeline for a Todo application using modern DevOps practices and cloud infrastructure. The application consists of a frontend, backend, and infrastructure components deployed on AWS
+This project implements a complete CI/CD pipeline for a Todo application using modern DevOps practices and cloud infrastructure. The application consists of a frontend, backend, and infrastructure components deployed on AWS.
 
 ## Project Structure
 
