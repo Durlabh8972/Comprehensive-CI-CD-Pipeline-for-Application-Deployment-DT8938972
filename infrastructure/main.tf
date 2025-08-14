@@ -16,15 +16,21 @@ provider "aws" {
   }
 }
 
-# Data sources
+# -----------------------------
+# Data sources for existing resources
+# -----------------------------
+
+# Existing VPC
 data "aws_vpc" "existing" {
   default = true
 }
 
+# Availability zones
 data "aws_availability_zones" "available" {
   state = "available"
 }
 
+# AMI for EC2
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"]
@@ -40,33 +46,41 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Use existing Internet Gateway
+# Existing Internet Gateway
 data "aws_internet_gateway" "existing" {
+  filter {
+    name   = "attachment.vpc-id"
+    values = [data.aws_vpc.existing.id]
+  }
+}
+
+# Existing Subnets
+data "aws_subnets" "existing" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.existing.id]
   }
 }
 
-# Use existing subnet (first public subnet in the VPC)
-data "aws_subnet_ids" "existing" {
-  vpc_id = data.aws_vpc.existing.id
-}
-
 data "aws_subnet" "public" {
-  id = data.aws_subnet_ids.existing.ids[0]
+  id = data.aws_subnets.existing.ids[0]
 }
 
-# Use existing route table (first one for the VPC)
+# Existing Route Table
 data "aws_route_tables" "existing" {
-  vpc_id = data.aws_vpc.existing.id
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing.id]
+  }
 }
 
 data "aws_route_table" "public" {
   id = data.aws_route_tables.existing.ids[0]
 }
 
-# Security Group (create new in existing VPC)
+# -----------------------------
+# Security Group (new in existing VPC)
+# -----------------------------
 resource "aws_security_group" "app" {
   name_prefix = "${var.environment}-app-"
   vpc_id      = data.aws_vpc.existing.id
@@ -111,7 +125,9 @@ resource "aws_security_group" "app" {
   }
 }
 
+# -----------------------------
 # EC2 Instance
+# -----------------------------
 locals {
   user_data = base64encode(templatefile("${path.module}/user-data.sh", { environment = var.environment }))
 }
@@ -135,7 +151,9 @@ resource "aws_instance" "app" {
   }
 }
 
+# -----------------------------
 # Elastic IP
+# -----------------------------
 resource "aws_eip" "app" {
   instance = aws_instance.app.id
   domain   = "vpc"
