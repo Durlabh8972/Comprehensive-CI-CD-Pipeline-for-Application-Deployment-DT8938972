@@ -40,48 +40,33 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Internet Gateway
-resource "aws_internet_gateway" "main" {
+# Use existing Internet Gateway
+data "aws_internet_gateway" "existing" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing.id]
+  }
+}
+
+# Use existing subnet (first public subnet in the VPC)
+data "aws_subnet_ids" "existing" {
   vpc_id = data.aws_vpc.existing.id
-
-  tags = {
-    Name = "${var.environment}-igw"
-  }
 }
 
-# Public Subnet
-resource "aws_subnet" "public" {
-  vpc_id                  = data.aws_vpc.existing.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.environment}-public-subnet"
-  }
+data "aws_subnet" "public" {
+  id = data.aws_subnet_ids.existing.ids[0]
 }
 
-# Route Table
-resource "aws_route_table" "public" {
+# Use existing route table (first one for the VPC)
+data "aws_route_tables" "existing" {
   vpc_id = data.aws_vpc.existing.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "${var.environment}-public-rt"
-  }
 }
 
-# Route Table Association
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
-  route_table_id = aws_route_table.public.id
+data "aws_route_table" "public" {
+  id = data.aws_route_tables.existing.ids[0]
 }
 
-# Security Group
+# Security Group (create new in existing VPC)
 resource "aws_security_group" "app" {
   name_prefix = "${var.environment}-app-"
   vpc_id      = data.aws_vpc.existing.id
@@ -136,7 +121,7 @@ resource "aws_instance" "app" {
   instance_type          = var.instance_type
   key_name               = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [aws_security_group.app.id]
-  subnet_id              = aws_subnet.public.id
+  subnet_id              = data.aws_subnet.public.id
   user_data              = local.user_data
 
   root_block_device {
