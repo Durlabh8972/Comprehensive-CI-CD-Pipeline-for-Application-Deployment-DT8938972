@@ -1,4 +1,3 @@
-// server.js
 'use strict';
 import express, { json } from 'express';
 import cors from 'cors';
@@ -14,15 +13,15 @@ app.use(cors());
 app.use(helmet());
 app.use(json());
 
-//  Health check for Express backend routes
+// Health check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
+
 // Routes
 app.use('/api/todos', todoRoutes);
 
-
-// Root endpoint 
+// Root endpoint
 app.get('/', (req, res) => {
   res.send('Todo API is running...');
 });
@@ -30,12 +29,12 @@ app.get('/', (req, res) => {
 async function startServer() {
   try {
     await authenticate();
-    
-    await sync(); 
+    await sync();
 
-    return app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
+    return server;
   } catch (error) {
     console.error('Unable to start the server:', error);
     process.exit(1);
@@ -43,15 +42,17 @@ async function startServer() {
 }
 
 let server;
-// if (require.main === module) {
-  server = startServer(); 
-// }
 
-// Handle graceful shutdown on SIGINT and SIGTERM
+// Only start server if NOT running in test mode
+if (process.env.NODE_ENV !== 'test') {
+  server = startServer();
+}
+
+// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   if (server) {
-    server.then(s => {
+    Promise.resolve(server).then(s => {
       s.close(() => {
         console.log('HTTP server closed');
         process.exit(0);
@@ -63,9 +64,6 @@ process.on('SIGTERM', () => {
   }
 });
 
-// export default { app, startServer, sequelize }; 
-// Export the Express app as the default export
-export default app; 
-
-// Export other components as named exports
+// Export the app for testing without starting the server
+export default app;
 export { startServer, sequelize };
