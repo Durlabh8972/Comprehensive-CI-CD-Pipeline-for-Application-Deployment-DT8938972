@@ -22,7 +22,7 @@ app.get('/health', (req, res) => {
 app.use('/api/todos', todoRoutes);
 
 
-// Root endpoint
+// Root endpoint 
 app.get('/', (req, res) => {
   res.send('Todo API is running...');
 });
