@@ -17,10 +17,8 @@ provider "aws" {
 }
 
 # -----------------------------
-# Data sources for existing resources
-# -----------------------------
-
 # Existing VPC
+# -----------------------------
 data "aws_vpc" "existing" {
   default = true
 }
@@ -54,17 +52,20 @@ data "aws_internet_gateway" "existing" {
   }
 }
 
-# Existing Subnets (IDs only)
-data "aws_subnet_ids" "existing" {
-  vpc_id = data.aws_vpc.existing.id
+# Existing Subnet (take the first subnet in VPC)
+data "aws_subnets" "existing" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing.id]
+  }
 }
 
 data "aws_subnet" "public" {
-  id = data.aws_subnet_ids.existing.ids[0]
+  id = data.aws_subnets.existing.ids[0]
 }
 
 # Existing Main Route Table
-data "aws_route_table" "public" {
+data "aws_route_table" "main" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.existing.id]
@@ -77,7 +78,7 @@ data "aws_route_table" "public" {
 }
 
 # -----------------------------
-# Security Group (create new in existing VPC)
+# Security Group
 # -----------------------------
 resource "aws_security_group" "app" {
   name_prefix = "${var.environment}-app-"
