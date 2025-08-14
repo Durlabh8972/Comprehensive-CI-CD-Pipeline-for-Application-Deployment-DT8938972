@@ -26,15 +26,19 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-# data "aws_ami" "ubuntu" {
-#   most_recent = true
-#   # owners      = ["099720109477"] # Canonical
+# Use existing VPC instead of creating new one
+data "aws_vpc" "existing" {
+  id = var.existing_vpc_id
+}
 
-#   filter {
-#     name   = "name"
-#     values = ["ubuntu/images/hvm-ssd/ubuntu-22.04-amd64-server-*"]
-#   }
-# }
+# Use existing subnets
+data "aws_subnets" "existing" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing.id]
+  }
+}
+
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"]
@@ -49,62 +53,11 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 }
-# VPC
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name = "${var.environment}-vpc"
-  }
-}
-
-# Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "${var.environment}-igw"
-  }
-}
-
-# Public Subnet
-resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.environment}-public-subnet"
-  }
-}
-
-# Route Table
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "${var.environment}-public-rt"
-  }
-}
-
-# Route Table Association
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
-  route_table_id = aws_route_table.public.id
-}
 
 # Security Group
 resource "aws_security_group" "app" {
   name_prefix = "${var.environment}-app-"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.existing.id
 
   # HTTP
   ingress {
@@ -164,7 +117,7 @@ resource "aws_instance" "app" {
   instance_type          = var.instance_type
   key_name              = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [aws_security_group.app.id]
-  subnet_id             = aws_subnet.public.id
+  subnet_id             = data.aws_subnets.existing.ids[0]
   
   user_data = local.user_data
 

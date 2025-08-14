@@ -11,10 +11,10 @@ variable "environment" {
   default     = "development"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+variable "existing_vpc_id" {
+  description = "ID of existing VPC to use"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "vpc-01e78b537c23ead47"  # prog8870-final-vpc
 }
 
 variable "instance_type" {
