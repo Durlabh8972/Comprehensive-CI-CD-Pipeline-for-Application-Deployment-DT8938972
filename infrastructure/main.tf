@@ -54,32 +54,30 @@ data "aws_internet_gateway" "existing" {
   }
 }
 
-# Existing Subnets
-data "aws_subnets" "existing" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.existing.id]
-  }
+# Existing Subnets (IDs only)
+data "aws_subnet_ids" "existing" {
+  vpc_id = data.aws_vpc.existing.id
 }
 
 data "aws_subnet" "public" {
-  id = data.aws_subnets.existing.ids[0]
+  id = data.aws_subnet_ids.existing.ids[0]
 }
 
-# Existing Route Table
-data "aws_route_tables" "existing" {
+# Existing Main Route Table
+data "aws_route_table" "public" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.existing.id]
   }
-}
 
-data "aws_route_table" "public" {
-  id = data.aws_route_tables.existing.ids[0]
+  filter {
+    name   = "association.main"
+    values = ["true"]
+  }
 }
 
 # -----------------------------
-# Security Group (new in existing VPC)
+# Security Group (create new in existing VPC)
 # -----------------------------
 resource "aws_security_group" "app" {
   name_prefix = "${var.environment}-app-"
