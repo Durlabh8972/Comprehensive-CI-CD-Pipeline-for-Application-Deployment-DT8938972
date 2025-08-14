@@ -16,15 +16,19 @@ provider "aws" {
   }
 }
 
-# Data sources
+# -----------------------------
+# Existing VPC
+# -----------------------------
 data "aws_vpc" "existing" {
   default = true
 }
 
+# Availability zones
 data "aws_availability_zones" "available" {
   state = "available"
 }
 
+# AMI for EC2
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"]
@@ -40,48 +44,42 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = data.aws_vpc.existing.id
-
-  tags = {
-    Name = "${var.environment}-igw"
+# Existing Internet Gateway
+data "aws_internet_gateway" "existing" {
+  filter {
+    name   = "attachment.vpc-id"
+    values = [data.aws_vpc.existing.id]
   }
 }
 
-# Public Subnet
-resource "aws_subnet" "public" {
-  vpc_id                  = data.aws_vpc.existing.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.environment}-public-subnet"
+# Existing Subnet (take the first subnet in VPC)
+data "aws_subnets" "existing" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing.id]
   }
 }
 
-# Route Table
-resource "aws_route_table" "public" {
-  vpc_id = data.aws_vpc.existing.id
+data "aws_subnet" "public" {
+  id = data.aws_subnets.existing.ids[0]
+}
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+# Existing Main Route Table
+data "aws_route_table" "main" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing.id]
   }
 
-  tags = {
-    Name = "${var.environment}-public-rt"
+  filter {
+    name   = "association.main"
+    values = ["true"]
   }
 }
 
-# Route Table Association
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
-  route_table_id = aws_route_table.public.id
-}
-
+# -----------------------------
 # Security Group
+# -----------------------------
 resource "aws_security_group" "app" {
   name_prefix = "${var.environment}-app-"
   vpc_id      = data.aws_vpc.existing.id
@@ -126,7 +124,9 @@ resource "aws_security_group" "app" {
   }
 }
 
+# -----------------------------
 # EC2 Instance
+# -----------------------------
 locals {
   user_data = base64encode(templatefile("${path.module}/user-data.sh", { environment = var.environment }))
 }
@@ -136,7 +136,7 @@ resource "aws_instance" "app" {
   instance_type          = var.instance_type
   key_name               = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [aws_security_group.app.id]
-  subnet_id              = aws_subnet.public.id
+  subnet_id              = data.aws_subnet.public.id
   user_data              = local.user_data
 
   root_block_device {
@@ -150,7 +150,9 @@ resource "aws_instance" "app" {
   }
 }
 
+# -----------------------------
 # Elastic IP
+# -----------------------------
 resource "aws_eip" "app" {
   instance = aws_instance.app.id
   domain   = "vpc"
